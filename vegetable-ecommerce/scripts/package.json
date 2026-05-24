@@ -1,0 +1,8 @@
+{
+  "name": "seed-data",
+  "version": "1.0.0",
+  "dependencies": {
+    "mongoose": "^8.0.0",
+    "bcryptjs": "^2.4.3"
+  }
+}

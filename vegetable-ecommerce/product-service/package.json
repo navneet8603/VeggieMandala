@@ -1,0 +1,21 @@
+{
+  "name": "vegetable-ecommerce-product-service",
+  "version": "1.0.0",
+  "description": "Product Catalog Service with Redis Caching",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^8.0.0",
+    "ioredis": "^5.3.2",
+    "express-validator": "^7.0.1",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

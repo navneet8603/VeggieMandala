@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # Databases
+  mongodb:
+    image: mongo:7.0
+    container_name: veg_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - vegetable-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: veg_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vegetable-network
+
+  # Microservices
+  api-gateway:
+    build: ./api-gateway
+    container_name: veg_gateway
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://redis:6379
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - PRODUCT_SERVICE_URL=http://product-service:5002
+      - ORDER_SERVICE_URL=http://order-service:5003
+      - INVENTORY_SERVICE_URL=http://inventory-service:5004
+      - PAYMENT_SERVICE_URL=http://payment-service:5005
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5006
+      - FRONTEND_URL=http://localhost:3000
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - vegetable-network
+
+  auth-service:
+    build: ./auth-service
+    container_name: veg_auth
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_auth?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  product-service:
+    build: ./product-service
+    container_name: veg_products
+    restart: always
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_products?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  order-service:
+    build: ./order-service
+    container_name: veg_orders
+    restart: always
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_orders?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - INVENTORY_SERVICE_URL=http://inventory-service:5004
+      - PAYMENT_SERVICE_URL=http://payment-service:5005
+      - PRODUCT_SERVICE_URL=http://product-service:5002
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: veg_inventory
+    restart: always
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_inventory?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  payment-service:
+    build: ./payment-service
+    container_name: veg_payments
+    restart: always
+    ports:
+      - "5005:5005"
+    environment:
+      - PORT=5005
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_payments?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: veg_notifications
+    restart: always
+    ports:
+      - "5006:5006"
+    environment:
+      - PORT=5006
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/vegetable_notifications?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - FRONTEND_URL=http://localhost:3000
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vegetable-network
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: veg_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+      - VITE_SOCKET_URL=http://localhost:5006
+    depends_on:
+      - api-gateway
+    networks:
+      - vegetable-network
+
+  # Load Balancer (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: veg_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-gateway
+      - frontend
+    networks:
+      - vegetable-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  vegetable-network:
+    driver: bridge
